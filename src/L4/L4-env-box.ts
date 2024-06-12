@@ -39,17 +39,17 @@ import { format } from "../shared/format";
 // ========================================================
 // Box datatype
 // Encapsulate mutation in a single type.
-type Box<T> = T[];
+type Box<T> = T[];                  // changes only will be using box
 const makeBox = <T>(x: T): Box<T> => ([x]);
 const unbox = <T>(b: Box<T>): T => b[0];
-const setBox = <T>(b: Box<T>, v: T): void => { b[0] = v; return; }
+const setBox = <T>(b: Box<T>, v: T): void => { b[0] = v; return; } //not functional!!
 
 // ========================================================
 // Frame binding
 export type FBinding = {
     tag: "FBinding";
     var: string;
-    val: Box<Value>;
+    val: Box<Value>; //the value is wrapped with box, so we can change it later
 }
 
 export const isFBinding = (x: any): x is FBinding => x.tag === "FBinding";
@@ -132,7 +132,7 @@ type GlobalEnv = {
 export const isGlobalEnv = (x: any): x is GlobalEnv => x.tag === "GlobalEnv";
 const makeGlobalEnv = (): GlobalEnv => ({tag: "GlobalEnv", frame: makeBox(makeFrame([], []))});
 // There is a single mutable value in the type Global-env
-export let theGlobalEnv = makeGlobalEnv();
+export let theGlobalEnv = makeGlobalEnv();  // the global env. 1 frame wrapped with box
 export const initGlobalEnv = (): GlobalEnv => {
     theGlobalEnv = makeGlobalEnv();
     return theGlobalEnv;
@@ -140,7 +140,7 @@ export const initGlobalEnv = (): GlobalEnv => {
 
 const globalEnvSetFrame = (ge: GlobalEnv, f: Frame): void => setBox(ge.frame, f);
 
-export const globalEnvAddBinding = (v: string, val: Value): void =>
+export const globalEnvAddBinding = (v: string, val: Value): void => // add to the current frame the new binding
     globalEnvSetFrame(theGlobalEnv,
                       extendFrame(unbox(theGlobalEnv.frame), v, val));
 

@@ -19,7 +19,7 @@ export type Closure = {
     tag: "Closure";
     params: VarDecl[];
     body: CExp[];
-    env: Env;
+    env: Env; //add env to remember the env when it created
 }
 export const makeClosure = (params: VarDecl[], body: CExp[], env: Env): Closure =>
     ({tag: "Closure", params: params, body: body, env: env});

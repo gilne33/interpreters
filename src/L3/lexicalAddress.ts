@@ -260,7 +260,7 @@ This corresponds to the visible variables from the body of the inner lambda in:
 '(lambda (a c) (lambda (a b) <here>))
 */
 export const crossContour = (decls: VarDecl[], addresses: LexicalAddress[]): LexicalAddress[] =>
-    concat(makeBoundAddresses(decls), map(makeDeeperLexicalAddress, addresses));
+    concat(makeBoundAddresses(decls), map(makeDeeperLexicalAddress, addresses)); // add 1 depth to each var and continu to the new body
 /*
 Signature: makeBoundAddresses(decls)
 Type: VarDecl[] => LexicalAddress[]
@@ -287,21 +287,21 @@ unparseLA(addLexicalAddresses(parseLA(`
 (lambda (a b c)
   (if ((eq? free) (b : 0 1) (c : 0 2))
 */
-export const addLexicalAddresses = (exp: CExpLA): Result<CExpLA> => {
+export const addLexicalAddresses = (exp: CExpLA): Result<CExpLA> => { //return new cexp with replacing of the varref to lexical address
     const visitProc = (proc: ProcExpLA, addresses: LexicalAddress[]): Result<ProcExpLA> => {
         const newAddresses = crossContour(proc.params, addresses);
         return mapv(mapResult(b => visit(b, newAddresses), proc.body), (bs: CExpLA[]) => 
                     makeProcExpLA(proc.params, bs));
     };
     const visit = (exp: CExpLA, addresses: LexicalAddress[]): Result<CExpLA> =>
-        isBoolExp(exp) ? makeOk(exp) :
-        isNumExp(exp) ? makeOk(exp) :
+        isBoolExp(exp) ? makeOk(exp) : // no var ref
+        isNumExp(exp) ? makeOk(exp) : // same
         isStrExp(exp) ? makeOk(exp) :
-        isVarRef(exp) ? makeOk(getLexicalAddress(exp, addresses)) :
+        isVarRef(exp) ? makeOk(getLexicalAddress(exp, addresses)) : // get a lexical address
         isFreeVar(exp) ? makeFailure(`unexpected LA ${format(exp)}`) :
         isLexicalAddress(exp) ? makeFailure(`unexpected LA ${format(exp)}`) :
         isLitExp(exp) ? makeOk(exp) :
-        isIfExpLA(exp) ? bind(visit(exp.test, addresses), (test: CExpLA) =>
+        isIfExpLA(exp) ? bind(visit(exp.test, addresses), (test: CExpLA) => // add to the 3 parts and built new if exp with the replace of varref with lex add
                               bind(visit(exp.then, addresses), (then: CExpLA) =>
                                    mapv(visit(exp.alt, addresses), (alt: CExpLA) =>
                                         makeIfExpLA(test, then, alt)))) :
@@ -310,5 +310,5 @@ export const addLexicalAddresses = (exp: CExpLA): Result<CExpLA> => {
                                mapv(mapResult(rand => visit(rand, addresses), exp.rands), (rands: CExpLA[]) =>
                                     makeAppExpLA(rator, rands))) :
         exp;
-    return visit(exp, []);
+    return visit(exp, []); // start here with empty list
 };

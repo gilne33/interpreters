@@ -77,8 +77,8 @@ const evalCExps = (first: Exp, rest: Exp[], env: Env): Result<Value> =>
 // define always updates theGlobalEnv
 // We also only expect defineExps at the top level.
 const evalDefineExps = (def: DefineExp, exps: Exp[]): Result<Value> =>
-    bind(applicativeEval(def.val, theGlobalEnv), (rhs: Value) => { 
-            globalEnvAddBinding(def.var.var, rhs);
+    bind(applicativeEval(def.val, theGlobalEnv), (rhs: Value) => { // calculate the value, then change the global env
+            globalEnvAddBinding(def.var.var, rhs);  // add the new binding to env
             return evalSequence(exps, theGlobalEnv); 
         });
 
@@ -109,13 +109,13 @@ const evalLet = (exp: LetExp, env: Env): Result<Value> => {
 // 3. update the bindings of the vars to the computed vals
 // 4. compute body in extended env
 const evalLetrec = (exp: LetrecExp, env: Env): Result<Value> => {
-    const vars = map((b: Binding) => b.var.var, exp.bindings);
-    const vals = map((b: Binding) => b.val, exp.bindings);
-    const extEnv = makeExtEnv(vars, repeat(undefined, vars.length), env);
+    const vars = map((b: Binding) => b.var.var, exp.bindings);  // vars names
+    const vals = map((b: Binding) => b.val, exp.bindings);      // their values
+    const extEnv = makeExtEnv(vars, repeat(undefined, vars.length), env); //arrays size as the vars size, all will be undefined. make a new frame with these values
     // @@ Compute the vals in the extended env
-    const cvalsResult = mapResult((v: CExp) => applicativeEval(v, extEnv), vals);
-    const result = mapv(cvalsResult, (cvals: Value[]) => 
-                        zipWith((bdg, cval) => setFBinding(bdg, cval), extEnv.frame.fbindings, cvals));
+    const cvalsResult = mapResult((v: CExp) => applicativeEval(v, extEnv), vals);   //calculate the values with the extensive env
+    const result = mapv(cvalsResult, (cvals: Value[]) =>    // zipwith take 2 list and aplly the given function on the 2 list
+                        zipWith((bdg, cval) => setFBinding(bdg, cval), extEnv.frame.fbindings, cvals)); // set the binding to the new value
     return bind(result, _ => evalSequence(exp.body, extEnv));
 };
 

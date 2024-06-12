@@ -9,17 +9,17 @@ import { first } from '../shared/list';
 // export type ValueExp = LitExp | NumExp | BoolExp | StrExp | PrimOp;
 // In order to support normal eval as well - we generalize the types to CExp.
 // @Pre: vars and exps have the same length
-export const substitute = (body: CExp[], vars: string[], exps: CExp[]): CExp[] => {
-    const subVarRef = (e: VarRef): CExp => {
+export const substitute = (body: CExp[], vars: string[], exps: CExp[]): CExp[] => { //get a body, list of vars and list of vals to apply in the body
+    const subVarRef = (e: VarRef): CExp => { //check if e is in the vars that need to change
         const pos = indexOf(e.var, vars);
         return ((pos > -1) ? exps[pos] : e);
     };
     
-    const subProcExp = (e: ProcExp): ProcExp => {
-        const argNames = map((x) => x.var, e.args);
-        const subst = zip(vars, exps);
-        const freeSubst = filter((ve) => !includes(ve[0], argNames), subst);
-        return makeProcExp(
+    const subProcExp = (e: ProcExp): ProcExp => { //apply to lambda. 
+        const argNames = map((x) => x.var, e.args); //get the args name from the function
+        const subst = zip(vars, exps);  //ge t2 list and return a list of pairs- each pair is var name and value
+        const freeSubst = filter((ve) => !includes(ve[0], argNames), subst);    //filter each pair that the val name is in the vals name of the function. get only the free vars
+        return makeProcExp( //make new proc with sub the body of the vals that are free
             e.args,
             substitute(
                 e.body,
@@ -34,13 +34,13 @@ export const substitute = (body: CExp[], vars: string[], exps: CExp[]): CExp[] =
         isPrimOp(e) ? e :
         isLitExp(e) ? e :
         isStrExp(e) ? e :
-        isVarRef(e) ? subVarRef(e) :
-        isIfExp(e) ? makeIfExp(sub(e.test), sub(e.then), sub(e.alt)) :
+        isVarRef(e) ? subVarRef(e) : 
+        isIfExp(e) ? makeIfExp(sub(e.test), sub(e.then), sub(e.alt)) : //recursivly on each part and make new if exp
         isProcExp(e) ? subProcExp(e) :
         isAppExp(e) ? makeAppExp(sub(e.rator), map(sub, e.rands)) :
         e;
     
-    return map(sub, body);
+    return map(sub, body); // apply sub to the whole body
 };
 /*
     Purpose: create a generator of new symbols of the form v__n

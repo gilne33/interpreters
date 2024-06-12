@@ -30,9 +30,12 @@ const applicativeEval = (exp: CExp, env: Env): Result<Value> =>
     isProcExp(exp) ? evalProc(exp, env) :
     isLetExp(exp) ? evalLet(exp, env) :
     isLetrecExp(exp) ? evalLetrec(exp, env) :
-    isAppExp(exp) ? bind(applicativeEval(exp.rator, env), (proc: Value) =>
-                        bind(mapResult((rand: CExp) => applicativeEval(rand, env), exp.rands), (args: Value[]) =>
-                            applyProcedure(proc, args))) :
+    isAppExp(exp) ? bind(applicativeEval(exp.rator, env), //calculate the rator
+                        (proc: Value) =>
+                        bind(mapResult((rand: CExp) => 
+                            applicativeEval(rand, env), exp.rands), (   //calculate the  rands
+                                args: Value[]) =>
+                                     applyProcedure(proc, args))) : //call apply procedure
     isSetExp(exp) ? makeFailure(`To implement ${format(exp)}`) :
     exp;
 
@@ -56,7 +59,7 @@ const applyProcedure = (proc: Value, args: Value[]): Result<Value> =>
 
 const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
     const vars = map((v: VarDecl) => v.var, proc.params);
-    return evalSequence(proc.body, makeExtEnv(vars, args, proc.env));
+    return evalSequence(proc.body, makeExtEnv(vars, args, proc.env)); //instead of sub, call evalsequence on the body and with extensive env
 }
 
 // Evaluate a sequence of expressions (in a program)
@@ -90,9 +93,10 @@ export const evalParse = (s: string): Result<Value> =>
 // LET: Direct evaluation rule without syntax expansion
 // compute the values, extend the env, eval the body.
 const evalLet = (exp: LetExp, env: Env): Result<Value> => {
-    const vals = mapResult((v: CExp) => applicativeEval(v, env), map((b: Binding) => b.val, exp.bindings));
-    const vars = map((b: Binding) => b.var.var, exp.bindings);
-    return bind(vals, (vals: Value[]) => evalSequence(exp.body, makeExtEnv(vars, vals, env)));
+    const vals = mapResult((v: CExp) => 
+                    applicativeEval(v, env), map((b: Binding) => b.val, exp.bindings)); // calculate all the values from the bindings
+    const vars = map((b: Binding) => b.var.var, exp.bindings); //get the vars from the bindings
+    return bind(vals, (vals: Value[]) => evalSequence(exp.body, makeExtEnv(vars, vals, env))); //cal evalseq with the body of let and an extensive env 
 }
 
 // LETREC: Direct evaluation rule without syntax expansion
@@ -101,9 +105,9 @@ const evalLetrec = (exp: LetrecExp, env: Env): Result<Value> => {
     const vars = map((b: Binding) => b.var.var, exp.bindings);
     const vals = map((b: Binding) => b.val, exp.bindings);
     if (allT(isProcExp, vals)) {
-        const paramss = map((v: ProcExp) => v.args, vals);
-        const bodies = map((v: ProcExp) => v.body, vals);
-        return evalSequence(exp.body, makeRecEnv(vars, paramss, bodies, env));
+        // const paramss = map((v: ProcExp) => v.args, vals);
+        // const bodies = map((v: ProcExp) => v.body, vals);
+        return evalSequence(exp.body, makeRecEnv(vars, vals, env)); // we dont calculate the valus
     } else {
         return makeFailure(`Letrec: all variables must be bound to procedures: ${format(exp)}`);
     }

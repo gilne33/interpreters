@@ -48,9 +48,9 @@ import { Sexp, Token } from "s-expression";
 export type Exp = DefineExp | CExp;
 export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
 export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp;
-export type CExp =  AtomicExp | CompoundExp;
+export type CExp =  AtomicExp | CompoundExp; //all except define
 
-export type Program = {tag: "Program"; exps: Exp[]; }
+export type Program = {tag: "Program"; exps: Exp[]; } 
 export type DefineExp = {tag: "DefineExp"; var: VarDecl; val: CExp; }
 export type NumExp = {tag: "NumExp"; val: number; }
 export type BoolExp = {tag: "BoolExp"; val: boolean; }
@@ -62,9 +62,9 @@ export type AppExp = {tag: "AppExp"; rator: CExp; rands: CExp[]; }
 // L2
 export type IfExp = {tag: "IfExp"; test: CExp; then: CExp; alt: CExp; }
 export type ProcExp = {tag: "ProcExp"; args: VarDecl[], body: CExp[]; }
+// L3
 export type Binding = {tag: "Binding"; var: VarDecl; val: CExp; }
 export type LetExp = {tag: "LetExp"; bindings: Binding[]; body: CExp[]; }
-// L3
 export type LitExp = {tag: "LitExp"; val: SExpValue; }
 
 // Type value constructors for disjoint types
@@ -110,6 +110,7 @@ export const isBinding = (x: any): x is Binding => x.tag === "Binding";
 export const isLetExp = (x: any): x is LetExp => x.tag === "LetExp";
 // L3
 export const isLitExp = (x: any): x is LitExp => x.tag === "LitExp";
+// if there is no tag, it return false (javascript). the return type is boolean but with more information about the type of the var. there will no need to casting after it
 
 // Type predicates for type unions
 export const isExp = (x: any): x is Exp => isDefineExp(x) || isCExp(x);
@@ -124,31 +125,31 @@ export const isCExp = (x: any): x is CExp =>
 // ========================================================
 // Parsing
 
-export const parseL3 = (x: string): Result<Program> =>
-    bind(p(x), parseL3Program);
+export const parseL3 = (x: string): Result<Program> =>  //get a string and retunr the program
+    bind(p(x), parseL3Program); //bind will aplly parsel3program on the output of p(x). p(x) is the function of javaScript that get a string and return sExpression- a list of tokens
 
-export const parseL3Program = (sexp: Sexp): Result<Program> =>
-    sexp === "" || isEmpty(sexp) ? makeFailure("Unexpected empty program") :
+export const parseL3Program = (sexp: Sexp): Result<Program> =>  //get the tree of tokens (represent by array) and return the program or error
+    sexp === "" || isEmpty(sexp) ? makeFailure("Unexpected empty program") :    
     isToken(sexp) ? makeFailure(`Program cannot be a single token: ${format(sexp)}`) :
-    isNonEmptyList<Sexp>(sexp) ? parseL3GoodProgram(first(sexp), rest(sexp)) :
+    isNonEmptyList<Sexp>(sexp) ? parseL3GoodProgram(first(sexp), rest(sexp)) :  // if all good send the first and the rest, like car cdr
     makeFailure(`Unexpected type ${format(sexp)}`);
 
 const parseL3GoodProgram = (keyword: Sexp, body: Sexp[]): Result<Program> =>
-    keyword === "L3" && !isEmpty(body) ? mapv(mapResult(parseL3Exp, body), (exps: Exp[]) => 
-                                              makeProgram(exps)) :
+    keyword === "L3" && !isEmpty(body) ? mapv(mapResult(parseL3Exp, body), (exps: Exp[]) => //parse the rest of the array- after the parse will get a list of expressions
+                                              makeProgram(exps)) :  // make a program using the list of the expressions
     makeFailure(`Program must be of the form (L3 <exp>+): ${format([keyword, ...body])}`);
 
 // Exp -> <DefineExp> | <Cexp>
-export const parseL3Exp = (sexp: Sexp): Result<Exp> =>
-    isCompoundSexp(sexp) ? 
+export const parseL3Exp = (sexp: Sexp): Result<Exp> =>  // parse 1 expression
+    isCompoundSexp(sexp) ? //the sexp is array of tokens
         isNonEmptyList<Sexp>(sexp) ? parseL3CompoundExp(first(sexp), rest(sexp)) :
         makeFailure(`Exp cannot be an empty list: ${format(sexp)}`) :
-    isToken(sexp) ? parseL3Atomic(sexp) :
+    isToken(sexp) ? parseL3Atomic(sexp) :   //if its token- we get to the leav so its atomic exp
     makeFailure(`Bad param: ${sexp}`);
 
 // Compound -> DefineExp | CompoundCExp
 export const parseL3CompoundExp = (op: Sexp, params: Sexp[]): Result<Exp> => 
-    op === "define"? parseDefine(params) :
+    op === "define"? parseDefine(params) : // define will parse differently
     parseL3CompoundCExp(op, params);
 
 // CompoundCExp -> IfExp | ProcExp | LetExp | LitExp | AppExp
@@ -171,7 +172,7 @@ export const parseL3SpecialForm = (op: Sexp, params: Sexp[]): Result<CExp> =>
     makeFailure("Never");
 
 // DefineExp -> (define <varDecl> <CExp>)
-export const parseDefine = (params: List<Sexp>): Result<DefineExp> =>
+export const parseDefine = (params: List<Sexp>): Result<DefineExp> => // define is a list of sExp. first si the var, second is the value
     isNonEmptyList<Sexp>(params) ? 
         isEmpty(rest(params)) ? makeFailure(`define missing 1 arguments: ${format(params)}`) :
         (params.length > 2) ? makeFailure(`define too many arguments: ${format(params)}`) :
@@ -179,32 +180,32 @@ export const parseDefine = (params: List<Sexp>): Result<DefineExp> =>
     makeFailure("define missing 2 arguments");
 
 const parseGoodDefine = (variable: Sexp, val: Sexp): Result<DefineExp> =>
-    ! isIdentifier(variable) ? makeFailure(`First arg of define must be an identifier: ${format(variable)}`) :
-    mapv(parseL3CExp(val), (value: CExp) => 
+    ! isIdentifier(variable) ? makeFailure(`First arg of define must be an identifier: ${format(variable)}`) : //isIdentifier check if the name is valid
+    mapv(parseL3CExp(val), (value: CExp) => // call recursively on the value and make define exp with the var and val
          makeDefineExp(makeVarDecl(variable), value));
 
 export const parseL3CExp = (sexp: Sexp): Result<CExp> =>
-    isCompoundSexp(sexp) ? 
+    isCompoundSexp(sexp) ? //if compund exp
         isNonEmptyList<Sexp>(sexp) ? parseL3CompoundCExp(first(sexp), rest(sexp)) :
         makeFailure("CExp cannot be an empty list") :
     isToken(sexp) ? parseL3Atomic(sexp) :
     makeFailure(`Bad sexp: ${sexp}`);
 
 // Atomic -> number | boolean | primitiveOp | string
-export const parseL3Atomic = (token: Token): Result<CExp> =>
+export const parseL3Atomic = (token: Token): Result<CExp> => //check what is written and return base on that
     token === "#t" ? makeOk(makeBoolExp(true)) :
     token === "#f" ? makeOk(makeBoolExp(false)) :
-    isString(token) && isNumericString(token) ? makeOk(makeNumExp(+token)) :
+    isString(token) && isNumericString(token) ? makeOk(makeNumExp(+token)) : // + make a number from string
     isString(token) && isPrimitiveOp(token) ? makeOk(makePrimOp(token)) :
-    isString(token) ? makeOk(makeVarRef(token)) :
-    makeOk(makeStrExp(token.toString()));
+    isString(token) ? makeOk(makeVarRef(token)) : //return var reference
+    makeOk(makeStrExp(token.toString())); //if nothing, return a string exp
 
 /*
     ;; <prim-op>  ::= + | - | * | / | < | > | = | not | and | or | eq? | string=?
     ;;                  | cons | car | cdr | pair? | number? | list
     ;;                  | boolean? | symbol? | string?      ##### L3
 */
-const isPrimitiveOp = (x: string): boolean =>
+const isPrimitiveOp = (x: string): boolean =>       // all the primitive operator
     ["+", "-", "*", "/", ">", "<", "=", "not", "and", "or",
      "eq?", "string=?", "cons", "car", "cdr", "list", "pair?",
      "number?", "boolean?", "symbol?", "string?"].includes(x);
@@ -218,8 +219,8 @@ const parseAppExp = (op: Sexp, params: Sexp[]): Result<AppExp> =>
              makeAppExp(rator, rands)));
 
 const parseIfExp = (params: Sexp[]): Result<IfExp> =>
-    params.length !== 3 ? makeFailure(`Expression not of the form (if <cexp> <cexp> <cexp>): ${format(params)}`) :
-    mapv(mapResult(parseL3CExp, params), (cexps: CExp[]) => 
+    params.length !== 3 ? makeFailure(`Expression not of the form (if <cexp> <cexp> <cexp>): ${format(params)}`) : //check there is 3 parameter
+    mapv(mapResult(parseL3CExp, params), (cexps: CExp[]) => // call recurively on the params and get an array of cexp. then  make if exp with the result
         makeIfExp(cexps[0], cexps[1], cexps[2]));
 
 const parseProcExp = (vars: Sexp, body: Sexp[]): Result<ProcExp> =>

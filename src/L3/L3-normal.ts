@@ -31,7 +31,9 @@ export const L3normalEval = (exp: CExp, env: Env): Result<Value> =>
     isProcExp(exp) ? makeOk(makeClosure(exp.args, exp.body)) :
     // This is the difference between applicative-eval and normal-eval
     // Substitute the arguments into the body without evaluating them first.
-    isAppExp(exp) ? bind(L3normalEval(exp.rator, env), proc => L3normalApplyProc(proc, exp.rands, env)) :
+    isAppExp(exp) ? bind(
+        L3normalEval(exp.rator, env),  //we calculate the rator and send to applyprocedure the calculated rator and the rands with no calculation. we calculat it only when needed
+        proc => L3normalApplyProc(proc, exp.rands, env)) :
     makeFailure(`Bad ast: ${format(exp)}`);
 
 const evalIf = (exp: IfExp, env: Env): Result<Value> =>
@@ -49,7 +51,7 @@ Pre-conditions: proc must be a prim-op or a closure value
 */
 const L3normalApplyProc = (proc: Value, args: CExp[], env: Env): Result<Value> => {
     if (isPrimOp(proc)) {
-        const argVals: Result<Value[]> = mapResult((arg) => L3normalEval(arg, env), args);
+        const argVals: Result<Value[]> = mapResult((arg) => L3normalEval(arg, env), args); //calculate the args before use apply and use them
         return bind(argVals, (args: Value[]) => applyPrimitive(proc, args));
     } else if (isClosure(proc)) {
         // Substitute non-evaluated args into the body of the closure

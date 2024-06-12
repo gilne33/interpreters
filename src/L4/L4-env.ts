@@ -14,17 +14,17 @@
 // The key operation on env is apply-env(var) which returns the value associated to var in env
 // or throw an error if var is not defined in env.
 
-import { VarDecl, CExp } from './L4-ast';
+import { VarDecl, CExp, ProcExp } from './L4-ast';
 import { makeClosure, Value } from './L4-value';
 import { Result, makeOk, makeFailure } from '../shared/result';
 import { format } from '../shared/format';
 
 // ========================================================
 // Environment data type
-export type Env = EmptyEnv | ExtEnv | RecEnv;
+export type Env = EmptyEnv | ExtEnv | RecEnv;   // added an option of RecEnv
 export type EmptyEnv = {tag: "EmptyEnv" }
 export type ExtEnv = {
-    tag: "ExtEnv";
+    tag: "ExtEnv";  // a frame can have many vars, so it cahbged to array
     vars: string[];
     vals: Value[];
     nextEnv: Env;
@@ -32,16 +32,17 @@ export type ExtEnv = {
 export type RecEnv = {
     tag: "RecEnv";
     vars: string[];
-    paramss: VarDecl[][];
-    bodiess: CExp[][];
+    vals: ProcExp[];    // procexp instead of values
+    // paramss: VarDecl[][];
+    // bodiess: CExp[][];
     nextEnv: Env;
 }
 
 export const makeEmptyEnv = (): EmptyEnv => ({tag: "EmptyEnv"});
 export const makeExtEnv = (vs: string[], vals: Value[], env: Env): ExtEnv =>
     ({tag: "ExtEnv", vars: vs, vals: vals, nextEnv: env});
-export const makeRecEnv = (vs: string[], paramss: VarDecl[][], bodiess: CExp[][], env: Env): RecEnv =>
-    ({tag: "RecEnv", vars: vs, paramss: paramss, bodiess: bodiess, nextEnv: env});
+export const makeRecEnv = (vs: string[], vals: ProcExp[], env: Env): RecEnv =>
+    ({tag: "RecEnv", vars: vs, vals: vals, nextEnv: env});
 
 const isEmptyEnv = (x: any): x is EmptyEnv => x.tag === "EmptyEnv";
 const isExtEnv = (x: any): x is ExtEnv => x.tag === "ExtEnv";
@@ -59,8 +60,8 @@ const applyExtEnv = (env: ExtEnv, v: string): Result<Value> =>
     env.vars.includes(v) ? makeOk(env.vals[env.vars.indexOf(v)]) :
     applyEnv(env.nextEnv, v);
 
-const applyRecEnv = (env: RecEnv, v: string): Result<Value> =>
-    env.vars.includes(v) ? makeOk(makeClosure(env.paramss[env.vars.indexOf(v)],
-                                              env.bodiess[env.vars.indexOf(v)],
+const applyRecEnv = (env: RecEnv, v: string): Result<Value> =>  //procExp- take the args and body
+    env.vars.includes(v) ? makeOk(makeClosure(env.vals[env.vars.indexOf(v)].args, //when find return clousre
+                                              env.vals[env.vars.indexOf(v)].body,
                                               env)) :
-    applyEnv(env.nextEnv, v);
+    applyEnv(env.nextEnv, v); //consinue until find

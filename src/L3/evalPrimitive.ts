@@ -6,7 +6,7 @@ import { isBoolean, isNumber, isString } from "../shared/type-predicates";
 import { Result, makeOk, makeFailure } from "../shared/result";
 import { format } from "../shared/format";
 
-export const applyPrimitive = (proc: PrimOp, args: Value[]): Result<Value> =>
+export const applyPrimitive = (proc: PrimOp, args: Value[]): Result<Value> => // all the primitive operation
     proc.op === "+" ? (allT(isNumber, args) ? makeOk(reduce((x, y) => x + y, 0, args)) : 
                                               makeFailure(`+ expects numbers only: ${format(args)}`)) :
     proc.op === "-" ? minusPrim(args) :
