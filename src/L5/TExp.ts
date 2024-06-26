@@ -29,7 +29,7 @@
 ;; [Empty -> number]
 ;; [Empty -> void]
 */
-import { chain, concat, map, uniq } from "ramda";
+import { any, chain, concat, map, uniq } from "ramda";
 import { Sexp } from "s-expression";
 import { isEmpty, isNonEmptyList } from "../shared/list";
 import { isArray, isBoolean, isString } from '../shared/type-predicates';
@@ -42,7 +42,7 @@ import { format } from "../shared/format";
 export type TExp =  AtomicTExp | CompoundTExp | TVar;
 export const isTExp = (x: any): x is TExp => isAtomicTExp(x) || isCompoundTExp(x) || isTVar(x);
 
-export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp;
+export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp | Never | Any;
 export const isAtomicTExp = (x: any): x is AtomicTExp =>
     isNumTExp(x) || isBoolTExp(x) || isStrTExp(x) || isVoidTExp(x);
 
@@ -68,6 +68,14 @@ export const isStrTExp = (x: any): x is StrTExp => x.tag === "StrTExp";
 export type VoidTExp = { tag: "VoidTExp" };
 export const makeVoidTExp = (): VoidTExp => ({tag: "VoidTExp"});
 export const isVoidTExp = (x: any): x is VoidTExp => x.tag === "VoidTExp";
+
+export type Any = {tag: "Any"; val: any; }
+export const makeAnyTExp = (v: any): Any => ({tag: "Any", val: v});
+export const isAnyTExp = (x: any): x is Any => x.tag === "Any";
+
+export type Never = {tag: "Never"; val: never; }
+export const makeNeverTExp = (v: never): Never => ({tag: "Never", val: v});
+export const isNeverTExp = (x: any): x is Never => x.tag === "Never";
 
 // proc-te(param-tes: list(te), return-te: te)
 export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; }; //field to the params the proc gets, and what the proc returns
@@ -215,6 +223,8 @@ export const unparseTExp = (te: TExp): Result<string> => {
         isEmptyTupleTExp(x) ? makeOk("Empty") :
         isNonEmptyTupleTExp(x) ? unparseTuple(x.TEs) :
         x === undefined ? makeFailure("Undefined TVar") :
+        isAnyTExp(x) ? makeOk('any'):
+        isNeverTExp(x) ? makeOk('never'):
         x;
 
     const unparsed = up(te);

@@ -63,7 +63,7 @@ export const isExp = (x: any): x is Exp => isDefineExp(x) || isCExp(x);
 export type CExp =  AtomicExp | CompoundExp;
 export const isCExp = (x: any): x is CExp => isAtomicExp(x) || isCompoundExp(x);
 
-export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef | Never | Any;
+export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
 
 
 
@@ -157,13 +157,7 @@ export const makeSetExp = (v: VarRef, val: CExp): SetExp =>
     ({tag: "SetExp", var: v, val: val});
 export const isSetExp = (x: any): x is SetExp => x.tag === "SetExp";
 
-export type Any = {tag: "Any"; val: any; }
-export const makeAnyTExp = (v: any): Any => ({tag: "Any", val: v});
-export const isAnyTExp = (x: any): x is Any => x.tag === "Any";
 
-export type Never = {tag: "Never"; val: never; }
-export const makeNeverTExp = (v: never): Never => ({tag: "Never", val: v});
-export const isNeverTExp = (x: any): x is Never => x.tag === "Never";
 
 // To help parser - define a type for reserved key words.
 export type SpecialFormKeyword = "lambda" | "let" | "letrec" | "if" | "set!" | "quote";
@@ -384,8 +378,6 @@ export const unparse = (e: Parsed): Result<string> =>
                         mapv(unparse(e.val), (val: string) =>
                             `(define ${vd} ${val})`)) :
     isProgram(e) ? mapv(unparseLExps(e.exps), (exps: string) => `(L5 ${exps})`) :
-    isAnyTExp(e) ? makeOk(`${e.val}`) :
-    isNeverTExp(e) ? makeOk(`${e.val}`) :
     e;
 
 const unparseReturn = (te: TExp): Result<string> =>
