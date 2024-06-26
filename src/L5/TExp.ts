@@ -53,7 +53,7 @@ export type NonTupleTExp = AtomicTExp | ProcTExp | TVar;
 export const isNonTupleTExp = (x: any): x is NonTupleTExp =>
     isAtomicTExp(x) || isProcTExp(x) || isTVar(x);
 
-export type NumTExp = { tag: "NumTExp" };
+export type NumTExp = { tag: "NumTExp" };       //just the tag. when see x:number need to make numTexp
 export const makeNumTExp = (): NumTExp => ({tag: "NumTExp"});
 export const isNumTExp = (x: any): x is NumTExp => x.tag === "NumTExp";
 
@@ -70,7 +70,7 @@ export const makeVoidTExp = (): VoidTExp => ({tag: "VoidTExp"});
 export const isVoidTExp = (x: any): x is VoidTExp => x.tag === "VoidTExp";
 
 // proc-te(param-tes: list(te), return-te: te)
-export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; };
+export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; }; //field to the params the proc gets, and what the proc returns
 export const makeProcTExp = (paramTEs: TExp[], returnTE: TExp): ProcTExp =>
     ({tag: "ProcTExp", paramTEs: paramTEs, returnTE: returnTE});
 export const isProcTExp = (x: any): x is ProcTExp => x.tag === "ProcTExp";
@@ -95,7 +95,7 @@ export const isNonEmptyTupleTExp = (x: any): x is NonEmptyTupleTExp => x.tag ===
 // TVar: Type Variable with support for dereferencing (TVar -> TVar)
 export type TVar = { tag: "TVar"; var: string; contents: Box<undefined | TExp>; };
 export const isEmptyTVar = (x: any): x is TVar =>
-    (x.tag === "TVar") && unbox(x.contents) === undefined;
+    (x.tag === "TVar") && unbox(x.contents) === undefined;  //added a new var with box (because we change it). hold undifined and then based on the type we will send we will add Texp
 export const makeTVar = (v: string): TVar =>
     ({tag: "TVar", var: v, contents: makeBox(undefined)});
 const makeTVarGen = (): () => TVar => {
@@ -136,8 +136,8 @@ export const eqAtomicTExp = (te1: AtomicTExp, te2: AtomicTExp): boolean =>
 // ========================================================
 // TExp parser
 
-export const parseTE = (t: string): Result<TExp> =>
-    bind(p(t), parseTExp);
+export const parseTE = (t: string): Result<TExp> => // L% parser call this function every time he see x:___.
+    bind(p(t), parseTExp); //like always, parse to sExp and the nparse
 
 /*
 ;; Purpose: Parse a type expression
@@ -150,12 +150,12 @@ export const parseTE = (t: string): Result<TExp> =>
 ;; parseTExp('(number -> (number -> number)') => '(proc-te (num-te) (proc-te (num-te) num-te))
 */
 export const parseTExp = (texp: Sexp): Result<TExp> =>
-    (texp === "number") ? makeOk(makeNumTExp()) :
+    (texp === "number") ? makeOk(makeNumTExp()) : //if the text is number, return numberTExp
     (texp === "boolean") ? makeOk(makeBoolTExp()) :
     (texp === "void") ? makeOk(makeVoidTExp()) :
     (texp === "string") ? makeOk(makeStrTExp()) :
     isString(texp) ? makeOk(makeTVar(texp)) :
-    isArray(texp) ? parseCompoundTExp(texp) :
+    isArray(texp) ? parseCompoundTExp(texp) : //now its just proc, in the assignment needs to add another type
     makeFailure(`Unexpected TExp - ${format(texp)}`);
 
 /*
@@ -164,13 +164,13 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
 const parseCompoundTExp = (texps: Sexp[]): Result<ProcTExp> => {
-    const pos = texps.indexOf('->');
+    const pos = texps.indexOf('->'); //split base on ->
     return (pos === -1)  ? makeFailure(`Procedure type expression without -> - ${format(texps)}`) :
            (pos === 0) ? makeFailure(`No param types in proc texp - ${format(texps)}`) :
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${format(texps)}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${format(texps)}`) :
-           bind(parseTupleTExp(texps.slice(0, pos)), (args: TExp[]) =>
-               mapv(parseTExp(texps[pos + 1]), (returnTE: TExp) =>
+           bind(parseTupleTExp(texps.slice(0, pos)), (args: TExp[]) => //take the argument
+               mapv(parseTExp(texps[pos + 1]), (returnTE: TExp) =>  //take the return type
                     makeProcTExp(args, returnTE)));
 };
 

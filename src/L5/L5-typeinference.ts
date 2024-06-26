@@ -14,7 +14,7 @@ import { format } from "../shared/format";
 // Return an error if the types are not unifiable.
 // Exp is only passed for documentation purposes.
 // te1 can be undefined when it is retrieved from a type variable which is not yet bound.
-const checkEqualType = (te1: T.TExp | undefined, te2: T.TExp, exp: A.Exp): Result<true> =>
+const checkEqualType = (te1: T.TExp | undefined, te2: T.TExp, exp: A.Exp): Result<true> =>  //the original just check the types are equal. now if 1 side is Tvar we will act different
     te1 === undefined ? bind(T.unparseTExp(te2), (texp: string) => makeFailure(`Incompatible types: undefined - ${format(texp)}`)) :
     T.isTVar(te1) && T.isTVar(te2) ? ((T.eqTVar(te1, te2) ? makeOk(true) : checkTVarEqualTypes(te1, te2, exp))) :
     T.isTVar(te1) ? checkTVarEqualTypes(te1, te2, exp) :
@@ -45,9 +45,10 @@ const checkProcEqualTypes = (te1: T.ProcTExp, te2: T.ProcTExp, exp: A.Exp): Resu
 // Purpose: check that a type variable matches a type expression
 // Updates the var is needed to refer to te.
 // Exp is only passed for documentation purposes.
-const checkTVarEqualTypes = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> =>
-    T.tvarIsNonEmpty(tvar) ? checkEqualType(T.tvarContents(tvar), te, exp) :
-    mapv(checkNoOccurrence(tvar, te, exp), _ => { T.tvarSetContents(tvar, te); return true; });
+const checkTVarEqualTypes = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> => //same as the original type checker
+    T.tvarIsNonEmpty(tvar) ? checkEqualType(T.tvarContents(tvar), te, exp) :    //if not empty call again with the next/ if both texp check if the same
+    mapv(checkNoOccurrence(tvar, te, exp), _ =>
+         { T.tvarSetContents(tvar, te); return true; });    //when get to the last (undifiend) change it to the type we have
 
 // Purpose: when attempting to bind tvar to te - check whether tvar occurs in te.
 // Throws error if a circular reference is found.

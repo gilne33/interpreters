@@ -10,7 +10,7 @@ import { format } from '../shared/format';
 // lists of variables and type expression.
 // The empty substitution is [[], []]
 
-export type Sub = {tag: "Sub"; vars: TVar[]; tes: TExp[]; }
+export type Sub = {tag: "Sub"; vars: TVar[]; tes: TExp[]; }     //list of Tvar and the Texp: (T1 , T32, ...) (number, boolean ...)
 export const isSub = (x: any): x is Sub => x.tag === "Sub";
 
 // Constructors:
@@ -46,7 +46,7 @@ export const checkNoOccurrence = (tvar: TVar, te: TExp): Result<true> => {
 export const isEmptySub = (sub: any): boolean => isSub(sub) && isEmpty(sub.vars) && isEmpty(sub.tes);
 
 // Purpose: If v is in sub.vars - return corresponding te, else v unchanged.
-export const subGet = (sub: Sub, v: TVar): TExp => {
+export const subGet = (sub: Sub, v: TVar): TExp => {        //check if exicst in the sub
     const lookup = (vars: TVar[], tes: TExp[]): TExp =>
         isNonEmptyList<TVar>(vars) && isNonEmptyList<TExp>(tes) ? 
             eqTVar(first(vars), v) ? first(tes) :
@@ -64,7 +64,7 @@ export const subGet = (sub: Sub, v: TVar): TExp => {
 // "(number * boolean -> number)"
 export const applySub = (sub: Sub, te: TExp): TExp =>
     isEmptySub(sub) ? te :
-    isAtomicTExp(te) ? te :
+    isAtomicTExp(te) ? te : //nothing to do
     isTVar(te) ? subGet(sub, te) :
     isProcTExp(te) ? makeProcTExp(map((te) => applySub(sub, te), te.paramTEs), applySub(sub, te.returnTE)) :
     te;
@@ -72,7 +72,7 @@ export const applySub = (sub: Sub, te: TExp): TExp =>
 // ============================================================
 // Purpose: Returns the composition of substitutions s.t.:
 //  applySub(result, te) === applySub(sub2, applySub(sub1, te))
-export const combineSub = (sub1: Sub, sub2: Sub): Result<Sub> =>
+export const combineSub = (sub1: Sub, sub2: Sub): Result<Sub> =>    //combine the 2 sub
     isEmptySub(sub1) ? makeOk(sub2) :
     isEmptySub(sub2) ? makeOk(sub1) :
     combine(sub1, sub2.vars, sub2.tes);

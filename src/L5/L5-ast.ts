@@ -63,7 +63,10 @@ export const isExp = (x: any): x is Exp => isDefineExp(x) || isCExp(x);
 export type CExp =  AtomicExp | CompoundExp;
 export const isCExp = (x: any): x is CExp => isAtomicExp(x) || isCompoundExp(x);
 
-export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
+export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef | Never | Any;
+
+
+
 export const isAtomicExp = (x: any): x is AtomicExp =>
     isNumExp(x) || isBoolExp(x) || isStrExp(x) ||
     isPrimOp(x) || isVarRef(x);
@@ -111,7 +114,7 @@ export type VarRef = {tag: "VarRef"; var: string; }
 export const makeVarRef = (v: string): VarRef => ({tag: "VarRef", var: v});
 export const isVarRef = (x: any): x is VarRef => x.tag === "VarRef";
 
-export type VarDecl = {tag: "VarDecl"; var: string; texp: TExp}
+export type VarDecl = {tag: "VarDecl"; var: string; texp: TExp} //added a field of the type of the var
 export const makeVarDecl = (v: string, te: TExp): VarDecl => ({tag: "VarDecl", var: v, texp: te});
 export const isVarDecl = (x: any): x is VarDecl => x.tag === "VarDecl";
 
@@ -125,7 +128,7 @@ export const makeIfExp = (test: CExp, then: CExp, alt: CExp): IfExp =>
     ({tag: "IfExp", test: test, then: then, alt: alt});
 export const isIfExp = (x: any): x is IfExp => x.tag === "IfExp";
 
-export type ProcExp = {tag: "ProcExp"; args: VarDecl[], body: CExp[]; returnTE: TExp }
+export type ProcExp = {tag: "ProcExp"; args: VarDecl[], body: CExp[]; returnTE: TExp } // add a field of the returned type. the arguments already added in the varDec type
 export const makeProcExp = (args: VarDecl[], body: CExp[], returnTE: TExp): ProcExp =>
     ({tag: "ProcExp", args: args, body: body, returnTE: returnTE});
 export const isProcExp = (x: any): x is ProcExp => x.tag === "ProcExp";
@@ -153,6 +156,14 @@ export type SetExp = {tag: "SetExp"; var: VarRef; val: CExp; }
 export const makeSetExp = (v: VarRef, val: CExp): SetExp =>
     ({tag: "SetExp", var: v, val: val});
 export const isSetExp = (x: any): x is SetExp => x.tag === "SetExp";
+
+export type Any = {tag: "Any"; val: any; }
+export const makeAnyTExp = (v: any): Any => ({tag: "Any", val: v});
+export const isAnyTExp = (x: any): x is Any => x.tag === "Any";
+
+export type Never = {tag: "Never"; val: never; }
+export const makeNeverTExp = (v: never): Never => ({tag: "Never", val: v});
+export const isNeverTExp = (x: any): x is Never => x.tag === "Never";
 
 // To help parser - define a type for reserved key words.
 export type SpecialFormKeyword = "lambda" | "let" | "letrec" | "if" | "set!" | "quote";
@@ -252,8 +263,8 @@ const parseProcExp = (vars: Sexp, rest: Sexp[]): Result<ProcExp> => {
     if (isArray(vars)) {
         const args = mapResult(parseVarDecl, vars);
         const body = mapResult(parseL5CExp, rest[0] === ":" ? rest.slice(2) : rest);
-        const returnTE = rest[0] === ":" ? parseTExp(rest[1]) : makeOk(makeFreshTVar());
-        return bind(args, (args: VarDecl[]) =>
+        const returnTE = rest[0] === ":" ? parseTExp(rest[1]) : makeOk(makeFreshTVar()); //if we see at the return value : we will call the parseTexp.
+        return bind(args, (args: VarDecl[]) =>                                             //else, make a type T__- generic type, becuase we always want to have a type
                     bind(body, (body: CExp[]) =>
                         mapv(returnTE, (returnTE: TExp) =>
                             makeProcExp(args, body, returnTE))));
@@ -277,12 +288,13 @@ const isConcreteVarDecl = (sexp: Sexp): boolean =>
     (isArray(sexp) && sexp.length > 2 && isIdentifier(sexp[0]) && (sexp[1] === ':'));
 
 export const parseVarDecl = (sexp: Sexp): Result<VarDecl> => {
-    if (isString(sexp)) {
+    if (isString(sexp)) {                   //if its not an array there is no type, therefore make a generic type T__
         return makeOk(makeVarDecl(sexp, makeFreshTVar()));
-    } else if (isArray(sexp)) {
-        const v = sexp[0];
+    } else if (isArray(sexp)) {     //if its array there is a type to the var
+        const v = sexp[0];          //var tame is at index 0, : is at index 1, and the type is at index 2
         if (isString(v)) {
-            return mapv(parseTExp(sexp[2]), (te: TExp) => makeVarDecl(v, te));
+            return mapv(parseTExp(sexp[2]), (te: TExp) =>   //take the type and make a varDec with the type
+                 makeVarDecl(v, te));  
         } else {
             return makeFailure(`Invalid var ${format(sexp[0])}`);
         }
@@ -372,6 +384,8 @@ export const unparse = (e: Parsed): Result<string> =>
                         mapv(unparse(e.val), (val: string) =>
                             `(define ${vd} ${val})`)) :
     isProgram(e) ? mapv(unparseLExps(e.exps), (exps: string) => `(L5 ${exps})`) :
+    isAnyTExp(e) ? makeOk(`${e.val}`) :
+    isNeverTExp(e) ? makeOk(`${e.val}`) :
     e;
 
 const unparseReturn = (te: TExp): Result<string> =>
